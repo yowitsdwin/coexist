@@ -26,10 +26,17 @@ export const sanitizeUrl = (url) => {
 };
 
 // Image compression
-export const compressImage = (file, maxWidth = 800, quality = 0.7) => {
+// Enhanced image compression for Realtime Database
+export const compressImageForDatabase = async (file, maxWidth = 400, quality = 0.6) => {
   return new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith('image/')) {
       reject(new Error('Invalid file type'));
+      return;
+    }
+
+    // Check file size (max 1MB before compression)
+    if (file.size > 1024 * 1024) {
+      reject(new Error('File too large. Please choose an image under 1MB'));
       return;
     }
 
@@ -41,6 +48,7 @@ export const compressImage = (file, maxWidth = 800, quality = 0.7) => {
         let width = img.width;
         let height = img.height;
         
+        // More aggressive scaling for database storage
         if (width > maxWidth) {
           height = (height * maxWidth) / width;
           width = maxWidth;
@@ -49,14 +57,26 @@ export const compressImage = (file, maxWidth = 800, quality = 0.7) => {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
+        
+        // Use image smoothing for better quality
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
         
+        // Convert to base64 with compression
         canvas.toBlob(
           (blob) => {
             if (!blob) {
               reject(new Error('Compression failed'));
               return;
             }
+            
+            // Check compressed size (should be < 100KB for Realtime Database)
+            if (blob.size > 100 * 1024) {
+              reject(new Error('Image still too large after compression. Try a smaller image.'));
+              return;
+            }
+            
             const reader2 = new FileReader();
             reader2.onloadend = () => resolve(reader2.result);
             reader2.onerror = reject;
@@ -72,6 +92,19 @@ export const compressImage = (file, maxWidth = 800, quality = 0.7) => {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+};
+
+// Validate base64 image size
+export const validateImageSize = (base64String, maxSizeKB = 100) => {
+  const base64Length = base64String.length - (base64String.indexOf(',') + 1);
+  const sizeInBytes = (base64Length * 3) / 4;
+  const sizeInKB = sizeInBytes / 1024;
+  
+  return {
+    isValid: sizeInKB <= maxSizeKB,
+    size: Math.round(sizeInKB),
+    maxSize: maxSizeKB
+  };
 };
 
 // Weather utilities
@@ -241,7 +274,8 @@ export const handleFirebaseError = (error) => {
 export default {
   sanitizeInput,
   sanitizeUrl,
-  compressImage,
+  compressImageForDatabase,
+  validateImageSize,
   getWeatherByCoords,
   getWeatherEmoji,
   formatTime,
