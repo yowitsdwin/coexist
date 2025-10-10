@@ -1,12 +1,14 @@
+// File: components/TypingIndicator.js
+
 import React, { useEffect } from 'react';
-import { useDebouncedWrite } from '../utils/useFirebase';
+import { useTypingIndicator } from '../utils/useFirebase';
 
 export const TypingIndicator = ({ userId, channel, darkMode }) => {
-  const { typingUsers, isAnyoneTyping } = useDebouncedWrite(userId, channel);
+  const { typingUsers, isAnyoneTyping } = useTypingIndicator(userId, channel);
 
   if (!isAnyoneTyping) return null;
 
-  const typingUsernames = Object.values(typingUsers).map(u => u.username);
+  const typingUsernames = Object.values(typingUsers).map(u => u.username || 'Someone');
 
   return (
     <div className={`px-4 py-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm italic`}>
@@ -23,27 +25,30 @@ export const TypingIndicator = ({ userId, channel, darkMode }) => {
 };
 
 export const useTypingHandler = (userId, channel) => {
-  // CORRECT: Call the useDebouncedWrite hook to get the setTyping function
-  const { setTyping } = useDebouncedWrite(userId, channel);
+  const { setTyping } = useTypingIndicator(userId, channel);
   const timeoutRef = React.useRef(null);
 
   const handleTyping = React.useCallback(() => {
-    setTyping(true);
+    if (setTyping) {
+      setTyping(true);
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      timeoutRef.current = setTimeout(() => {
+        setTyping(false);
+      }, 3000);
     }
-
-    timeoutRef.current = setTimeout(() => {
-      setTyping(false);
-    }, 3000);
   }, [setTyping]);
 
   const stopTyping = React.useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
-    setTyping(false);
+    if (setTyping) {
+      setTyping(false);
+    }
   }, [setTyping]);
 
   React.useEffect(() => {
@@ -51,8 +56,9 @@ export const useTypingHandler = (userId, channel) => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
-      // Ensure typing status is set to false when the component unmounts
-      setTyping(false); 
+      if (setTyping) {
+        setTyping(false);
+      }
     };
   }, [setTyping]);
 

@@ -6,7 +6,7 @@ import { ref, push, set, remove } from 'firebase/database';
 import { database } from '../firebase';
 import { useRealtimeQuery } from '../utils/useFirebase';
 import { compressImageForDatabase, validateImageSize, formatRelativeTime } from '../utils/helpers';
-import { useToast } from './Toast';
+import { useToast } from '../utils/Toast';
 import { CardSkeleton } from './Loading';
 
 const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {

@@ -1,3 +1,5 @@
+// File: contexts/__tests__/AuthContext.test.js
+
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../AuthContext';

@@ -1,3 +1,5 @@
+// File: components/__tests__/ImageUpload.test.js
+
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../../utils/testHelpers';

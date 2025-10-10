@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { compressImageForDatabase, validateImageSize } from '../utils/helpers';
-import { useToast } from './Toast';
+import { useToast } from '../utils/Toast';
 
 export const ImageUpload = ({ onUpload, onCancel, darkMode = false }) => {
   const [preview, setPreview] = useState(null);

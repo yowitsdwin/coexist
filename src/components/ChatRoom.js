@@ -10,7 +10,7 @@ import TypingIndicator from './TypingIndicator';
 import ChatMessage from './ChatMessage';
 import ImageUpload from './ImageUpload';
 import PresenceIndicator from './PresenceIndicator';
-import { useToast } from './Toast';
+import { useToast } from '../utils/Toast';
 import { sanitizeInput } from '../utils/helpers';
 import { MessageSkeleton } from './Loading';
 
