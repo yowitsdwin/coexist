@@ -1,21 +1,28 @@
-import React, { lazy, Suspense, useEffect } from 'react';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { ToastProvider } from './utils/Toast';
-import { LoadingScreen } from './components/Loading';
-import { usePresence, useConnectionState } from './utils/useFirebase';
+// File: App.js
+
+import React, { useState, useEffect } from 'react';
+import { Routes, Route } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
+import { useConnectionState } from './utils/useFirebase';
 import { initCleanup } from './utils/cleanup';
 
-// Lazy load heavy components
-const CoupleCanvas = lazy(() => import('./components/OptimizedCanvas'));
-const DailyPhotos = lazy(() => import('./components/DailyPhotos'));
-const ChatRoom = lazy(() => import('./components/ChatRoom'));
+// Route Components
+import ProtectedRoute from './components/ProtectedRoute';
+import PublicRoute from './components/PublicRoute';
+import MainLayout from './components/MainLayout';
+
+// Pages
+import HomePage from './pages/HomePage';
+import ChatPage from './pages/ChatPage';
+import PhotosPage from './pages/PhotosPage';
+import CanvasPage from './pages/CanvasPage';
+import ProfilePage from './pages/ProfilePage';
+import AuthPage from './pages/AuthPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 function App() {
-  const currentUserId = 'user1'; // Replace with actual auth
   const isConnected = useConnectionState();
-  
-  // Setup presence tracking
-  usePresence(currentUserId);
+  const [darkMode, setDarkMode] = useState(false);
 
   // Initialize cleanup on mount
   useEffect(() => {
@@ -23,27 +30,50 @@ function App() {
     return () => clearInterval(cleanupId);
   }, []);
 
+  // Dark mode handler
+  const handleToggleDarkMode = () => {
+    setDarkMode(prev => !prev);
+  };
+
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50">
-          {/* Connection indicator */}
-          {!isConnected && (
-            <div className="fixed top-0 left-0 right-0 bg-red-500 text-white text-center py-2 z-50">
-              Reconnecting...
-            </div>
-          )}
-
-          <Suspense fallback={<LoadingScreen message="Loading app..." />}>
-            <div className="container mx-auto p-4">
-              {/* Your app content here */}
-              <ChatRoom userId={currentUserId} />
-              <CoupleCanvas coupleId="couple1" userId={currentUserId} darkMode={false} />
-              <DailyPhotos coupleId="couple1" userId={currentUserId} />
-            </div>
-          </Suspense>
+      {!isConnected && (
+        <div className="fixed top-0 left-0 right-0 bg-red-500 text-white text-center py-2 z-[999]">
+          Reconnecting...
         </div>
-      </ToastProvider>
+      )}
+
+      <Routes>
+        {/* Protected Routes (Require Authentication) */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <MainLayout darkMode={darkMode} onToggleDarkMode={handleToggleDarkMode} />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="home" element={<HomePage darkMode={darkMode} />} />
+          <Route path="chat" element={<ChatPage darkMode={darkMode} />} />
+          <Route path="photos" element={<PhotosPage darkMode={darkMode} />} />
+          <Route path="canvas" element={<CanvasPage darkMode={darkMode} />} />
+          <Route path="profile" element={<ProfilePage darkMode={darkMode} />} />
+          <Route index element={<HomePage darkMode={darkMode} />} />
+        </Route>
+
+        {/* Public Routes (e.g., Login/Signup) */}
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <AuthPage darkMode={darkMode} />
+            </PublicRoute>
+          }
+        />
+
+        {/* Not Found Page */}
+        <Route path="*" element={<NotFoundPage darkMode={darkMode} />} />
+      </Routes>
     </ErrorBoundary>
   );
 }
