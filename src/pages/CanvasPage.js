@@ -3,10 +3,17 @@
 import React from 'react';
 import OptimizedCanvas from '../components/OptimizedCanvas';
 import { useAuth } from '../contexts/AuthContext';
+import { useCouple } from '../contexts/CoupleContext'; // Import the new hook
 
 const CanvasPage = ({ darkMode }) => {
   const { currentUser } = useAuth();
+  const { coupleId } = useCouple(); // Use the hook
 
+  // Don't render if the data isn't ready
+  if (!currentUser || !coupleId || !partnerId) {
+    return null; // Or a loading indicator
+  }
+  
   return (
     <div className={`min-h-screen ${
       darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-pink-50 to-purple-50'

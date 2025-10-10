@@ -4,10 +4,17 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Camera, Palette, Heart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useCouple } from '../contexts/CoupleContext';
 import PresenceIndicator from '../components/PresenceIndicator';
 
 const HomePage = ({ darkMode }) => {
   const { currentUser } = useAuth();
+  const { coupleId, partnerId } = useCouple();
+
+  //Prevents rendering before essential data is ready
+  if (!currentUser || !partnerId) {
+    return null;
+  }
 
   const features = [
     {

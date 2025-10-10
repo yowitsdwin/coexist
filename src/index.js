@@ -8,6 +8,7 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './utils/Toast';
 import reportWebVitals from './reportWebVitals';
+import { CoupleProvider } from './contexts/CoupleContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -15,7 +16,9 @@ root.render(
     <Router>
       <ToastProvider>
         <AuthProvider>
-          <App />
+          <CoupleProvider>
+            <App />
+          </CoupleProvider>
         </AuthProvider>
       </ToastProvider>
     </Router>
