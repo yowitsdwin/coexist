@@ -1,5 +1,3 @@
-// File: components/ChatRoom.js
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Send, Image as ImageIcon, Smile } from 'lucide-react';
 import { ref, push, set } from 'firebase/database';
@@ -21,25 +19,28 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
   const inputRef = useRef(null);
   const toast = useToast();
 
-  // Fetch messages with query optimization
+  // 1. Stabilize the transform function with useCallback to prevent infinite loops
+  const transformMessages = useCallback((val) => {
+    if (!val) return [];
+    return Object.entries(val)
+      .map(([id, msg]) => ({ id, ...msg }))
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }, []);
+
+  // Fetch messages with the stable transform function
   const { data: messages, loading } = useRealtimeQuery(
     `messages/${coupleId}`,
     {
       orderBy: 'timestamp',
       limit: 100,
-      transform: (val) => {
-        if (!val) return [];
-        return Object.entries(val)
-          .map(([id, msg]) => ({ id, ...msg }))
-          .sort((a, b) => a.timestamp - b.timestamp);
-      }
+      transform: transformMessages
     }
   );
 
-  // Typing indicator
+  // Typing indicator hooks
   const { handleTyping, stopTyping } = useTypingHandler(userId, coupleId);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom, memoized with useCallback
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
@@ -48,10 +49,9 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Send message
+  // Memoize the send message function
   const sendMessage = useCallback(async (imageData = null) => {
     const trimmedMessage = message.trim();
-    
     if (!trimmedMessage && !imageData) return;
 
     const sanitized = sanitizeInput(trimmedMessage, 1000);
@@ -79,13 +79,12 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
     }
   }, [message, userId, coupleId, stopTyping, toast]);
 
-  // Handle input change
+  // Memoize input handlers
   const handleInputChange = useCallback((e) => {
     setMessage(e.target.value);
     handleTyping();
   }, [handleTyping]);
 
-  // Handle key press
   const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -93,12 +92,11 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
     }
   }, [sendMessage]);
 
-  // Handle image upload
   const handleImageUpload = useCallback((imageData) => {
     sendMessage(imageData);
   }, [sendMessage]);
 
-  // Memoized message list
+  // Memoize the rendered list of messages to prevent re-rendering every message on each change
   const messageList = useMemo(() => {
     return messages?.map((msg) => (
       <ChatMessage
@@ -195,7 +193,7 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
 
           <button
             onClick={() => sendMessage()}
-            disabled={!message.trim()}
+            disabled={!message.trim() && !showImageUpload}
             className={`p-3 rounded-full transition-all ${
               message.trim()
                 ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600 shadow-lg'

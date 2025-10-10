@@ -4,16 +4,18 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Camera, Palette, Heart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useCouple } from '../contexts/CoupleContext';
+import { useCouple } from '../contexts/CoupleContext'; // 1. Import the new hook
 import PresenceIndicator from '../components/PresenceIndicator';
+import { useTodayStats } from '../hooks/useTodayStats'; // 1. Import the new hook
 
 const HomePage = ({ darkMode }) => {
   const { currentUser } = useAuth();
-  const { coupleId, partnerId } = useCouple();
+  const { partnerId, partner } = useCouple(); // 2. Get partner data from the context
+  const { stats, loading } = useTodayStats();
 
-  //Prevents rendering before essential data is ready
+  // Prevents rendering before essential data is loaded
   if (!currentUser || !partnerId) {
-    return null;
+    return null; 
   }
 
   const features = [
@@ -57,10 +59,11 @@ const HomePage = ({ darkMode }) => {
                 Welcome back, {currentUser?.displayName || 'User'}! 💕
               </h1>
               <p className={`mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Your partner's status
+                {partner?.displayName || 'Your partner'}'s status
               </p>
               <div className="mt-2">
-                <PresenceIndicator partnerId="partner-id" darkMode={darkMode} />
+                {/* 3. Use the dynamic partnerId from the hook */}
+                <PresenceIndicator partnerId={partnerId} darkMode={darkMode} />
               </div>
             </div>
             <Heart className="w-20 h-20 text-pink-500 animate-pulse" />
@@ -95,7 +98,10 @@ const HomePage = ({ darkMode }) => {
           })}
         </div>
 
-        {/* Quick Stats */}
+        {/* Quick Stats (Note: These are still hardcoded and would need real data) */}
+        <div className="container mx-auto px-4 py-8">
+        {/* ... */}
+        {/* Quick Stats section is now dynamic */}
         <div className={`${
           darkMode ? 'bg-gray-800' : 'bg-white'
         } rounded-2xl shadow-xl p-6`}>
@@ -107,7 +113,8 @@ const HomePage = ({ darkMode }) => {
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center">
               <div className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
-                0
+                {/* 3. Replace hardcoded "0" with real data */}
+                {loading ? '...' : stats.messageCount}
               </div>
               <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Messages
@@ -115,7 +122,8 @@ const HomePage = ({ darkMode }) => {
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold bg-gradient-to-r from-pink-500 to-pink-600 bg-clip-text text-transparent">
-                0
+                {/* 3. Replace hardcoded "0" with real data */}
+                {loading ? '...' : stats.photoCount}
               </div>
               <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Photos
@@ -123,7 +131,8 @@ const HomePage = ({ darkMode }) => {
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">
-                0
+                {/* 3. Replace hardcoded "0" with real data */}
+                {loading ? '...' : stats.strokeCount}
               </div>
               <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Canvas Strokes
@@ -131,6 +140,7 @@ const HomePage = ({ darkMode }) => {
             </div>
           </div>
         </div>
+    </div>
       </div>
     </div>
   );

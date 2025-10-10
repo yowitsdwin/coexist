@@ -1,5 +1,3 @@
-// File: components/DailyPhotos.js
-
 import React, { useState, useCallback, useMemo } from 'react';
 import { Camera, Heart, Trash2, Download } from 'lucide-react';
 import { ref, push, set, remove } from 'firebase/database';
@@ -13,14 +11,20 @@ const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {
   const [uploading, setUploading] = useState(false);
   const toast = useToast();
 
-  // Fetch photos
+  // THE FIX: Stabilize the transform function with useCallback
+  const transformPhotos = useCallback((val) => {
+    if (!val) return [];
+    return Object.entries(val)
+      .map(([id, photo]) => ({ id, ...photo }))
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, []);
+
+  // Fetch photos with the corrected options object
   const { data: photos, loading } = useRealtimeQuery(
     `dailyPhotos/${coupleId}`,
-    (val) => {
-      if (!val) return [];
-      return Object.entries(val)
-        .map(([id, photo]) => ({ id, ...photo }))
-        .sort((a, b) => b.timestamp - a.timestamp);
+    {
+      transform: transformPhotos,
+      enabled: !!coupleId // Only run query if coupleId exists
     }
   );
 
@@ -31,7 +35,7 @@ const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {
     return photos.filter(photo => photo.timestamp > oneDayAgo);
   }, [photos]);
 
-  // Handle photo capture
+  // Handle photo capture (wrapped in useCallback)
   const handlePhotoCapture = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -39,10 +43,7 @@ const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {
     setUploading(true);
 
     try {
-      // Compress image
       const compressed = await compressImageForDatabase(file, 400, 0.6);
-      
-      // Validate size
       const validation = validateImageSize(compressed, 100);
       if (!validation.isValid) {
         toast.error(`Image too large (${validation.size}KB). Max ${validation.maxSize}KB`);
@@ -50,7 +51,6 @@ const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {
         return;
       }
 
-      // Upload to Realtime Database
       const photosRef = ref(database, `dailyPhotos/${coupleId}`);
       const newPhotoRef = push(photosRef);
       
@@ -63,7 +63,7 @@ const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {
       });
 
       toast.success('Photo uploaded successfully!');
-      e.target.value = ''; // Reset input
+      e.target.value = '';
     } catch (error) {
       console.error('Upload error:', error);
       toast.error(error.message || 'Failed to upload photo');
@@ -72,19 +72,14 @@ const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {
     }
   }, [coupleId, userId, userName, toast]);
 
-  // Handle reaction
+  // ... (the rest of your DailyPhotos component remains the same)
   const handleReaction = useCallback(async (photoId, currentReactions) => {
     const reactionRef = ref(database, `dailyPhotos/${coupleId}/${photoId}/reactions/${userId}`);
-    
     try {
       if (currentReactions?.[userId]) {
-        // Remove reaction
         await remove(reactionRef);
       } else {
-        // Add reaction
-        await set(reactionRef, {
-          timestamp: Date.now()
-        });
+        await set(reactionRef, { timestamp: Date.now() });
       }
     } catch (error) {
       console.error('Reaction error:', error);
@@ -92,15 +87,12 @@ const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {
     }
   }, [coupleId, userId, toast]);
 
-  // Handle delete
   const handleDelete = useCallback(async (photoId, photoUserId) => {
     if (photoUserId !== userId) {
       toast.error('You can only delete your own photos');
       return;
     }
-
     if (!window.confirm('Delete this photo?')) return;
-
     try {
       const photoRef = ref(database, `dailyPhotos/${coupleId}/${photoId}`);
       await remove(photoRef);
@@ -111,7 +103,6 @@ const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {
     }
   }, [coupleId, userId, toast]);
 
-  // Handle download
   const handleDownload = useCallback((imageData, photoId) => {
     try {
       const link = document.createElement('a');
@@ -126,6 +117,7 @@ const DailyPhotos = ({ coupleId, userId, userName, darkMode = false }) => {
       toast.error('Failed to download photo');
     }
   }, [toast]);
+
 
   if (loading) {
     return <CardSkeleton darkMode={darkMode} />;

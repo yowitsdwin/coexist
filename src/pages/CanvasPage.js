@@ -10,7 +10,7 @@ const CanvasPage = ({ darkMode }) => {
   const { coupleId } = useCouple(); // Use the hook
 
   // Don't render if the data isn't ready
-  if (!currentUser || !coupleId || !partnerId) {
+  if (!currentUser || !coupleId) {
     return null; // Or a loading indicator
   }
   

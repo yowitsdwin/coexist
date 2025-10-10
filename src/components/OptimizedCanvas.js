@@ -1,23 +1,31 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { Stage, Layer, Line } from 'react-konva';
-import { ref, push, set } from 'firebase/database';
+import { ref, push, set, remove as firebaseRemove } from 'firebase/database';
 import { database } from '../firebase';
 import { useRealtimeQuery } from '../utils/useFirebase';
 import { debounce } from '../utils/helpers';
+import { useAuth } from '../contexts/AuthContext';
+import { useCouple } from '../contexts/CoupleContext';
 
-const OptimizedCanvas = ({ coupleId, userId, darkMode }) => {
+const OptimizedCanvas = ({ darkMode }) => {
+  const { currentUser } = useAuth();
+  const { coupleId } = useCouple();
+
   const [tool, setTool] = useState('pen');
   const [lines, setLines] = useState([]);
   const [color, setColor] = useState('#000000');
   const isDrawing = useRef(false);
   const stageRef = useRef(null);
   const batchRef = useRef([]);
-  const timeoutRef = useRef(null);
 
-  // Load existing strokes
+  const transformStrokes = useCallback((val) => (val ? Object.values(val) : []), []);
+
   const { data: remoteStrokes } = useRealtimeQuery(
     `canvasStrokes/${coupleId}`,
-    (val) => val ? Object.values(val) : []
+    {
+      transform: transformStrokes,
+      enabled: !!coupleId
+    }
   );
 
   useEffect(() => {
@@ -26,9 +34,8 @@ const OptimizedCanvas = ({ coupleId, userId, darkMode }) => {
     }
   }, [remoteStrokes]);
 
-  // Batched stroke upload
   const uploadBatch = useCallback(async () => {
-    if (batchRef.current.length === 0) return;
+    if (batchRef.current.length === 0 || !coupleId || !currentUser) return;
 
     const strokesToUpload = [...batchRef.current];
     batchRef.current = [];
@@ -40,7 +47,7 @@ const OptimizedCanvas = ({ coupleId, userId, darkMode }) => {
           const newStrokeRef = push(strokesRef);
           return set(newStrokeRef, {
             ...stroke,
-            userId,
+            userId: currentUser.uid,
             timestamp: Date.now()
           });
         })
@@ -48,15 +55,9 @@ const OptimizedCanvas = ({ coupleId, userId, darkMode }) => {
     } catch (error) {
       console.error('Batch upload error:', error);
     }
-  }, [coupleId, userId]);
-
-  // Debounced upload
-  const scheduleUpload = useCallback(
-    debounce(() => {
-      uploadBatch();
-    }, 1000),
-    [uploadBatch]
-  );
+  }, [coupleId, currentUser]);
+  
+  const scheduleUpload = useCallback(debounce(uploadBatch, 1000), [uploadBatch]);
 
   const handleMouseDown = useCallback((e) => {
     isDrawing.current = true;
@@ -77,42 +78,59 @@ const OptimizedCanvas = ({ coupleId, userId, darkMode }) => {
     const point = stage.getPointerPosition();
     
     setLines(prev => {
+      // THE FIX: Add a guard clause to prevent the error on an empty array.
+      if (prev.length === 0) {
+        return prev;
+      }
+
+      // Use a safer, more explicit immutable update pattern.
       const lastLine = prev[prev.length - 1];
-      lastLine.points = lastLine.points.concat([point.x, point.y]);
-      return prev.slice(0, -1).concat(lastLine);
+      const newPoints = lastLine.points.concat([point.x, point.y]);
+      const updatedLastLine = { ...lastLine, points: newPoints };
+      
+      return [...prev.slice(0, -1), updatedLastLine];
     });
-  }, []);
+  }, []); // Empty dependency array is correct here because we use the functional 'prev' state.
 
   const handleMouseUp = useCallback(() => {
     if (!isDrawing.current) return;
     isDrawing.current = false;
 
-    const lastLine = lines[lines.length - 1];
-    if (lastLine && lastLine.points.length > 2) {
-      batchRef.current.push(lastLine);
-      scheduleUpload();
-    }
-  }, [lines, scheduleUpload]);
+    // We use a functional update for setLines, so we access the latest 'lines' state here for batching.
+    setLines(currentLines => {
+      const lastLine = currentLines[currentLines.length - 1];
+      if (lastLine && lastLine.points.length > 2) {
+        batchRef.current.push(lastLine);
+        scheduleUpload();
+      }
+      return currentLines;
+    });
+  }, [scheduleUpload]);
 
   const handleClear = useCallback(async () => {
+    if (!coupleId) return;
     setLines([]);
     const strokesRef = ref(database, `canvasStrokes/${coupleId}`);
-    await set(strokesRef, null);
+    await firebaseRemove(strokesRef);
   }, [coupleId]);
 
+  if (!coupleId) {
+    return <div>Loading Canvas...</div>;
+  }
+
   return (
-    <div className="relative">
+    <div className="relative flex flex-col items-center">
       {/* Toolbar */}
-      <div className={`flex gap-2 mb-4 p-2 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow`}>
+      <div className={`flex gap-2 mb-4 p-2 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-white'} shadow`}>
         <button
           onClick={() => setTool('pen')}
-          className={`px-3 py-1 rounded ${tool === 'pen' ? 'bg-pink-500 text-white' : 'bg-gray-200'}`}
+          className={`px-3 py-1 rounded ${tool === 'pen' ? 'bg-pink-500 text-white' : darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}
         >
           Pen
         </button>
         <button
           onClick={() => setTool('eraser')}
-          className={`px-3 py-1 rounded ${tool === 'eraser' ? 'bg-pink-500 text-white' : 'bg-gray-200'}`}
+          className={`px-3 py-1 rounded ${tool === 'eraser' ? 'bg-pink-500 text-white' : darkMode ? 'bg-gray-600' : 'bg-gray-200'}`}
         >
           Eraser
         </button>
@@ -120,7 +138,7 @@ const OptimizedCanvas = ({ coupleId, userId, darkMode }) => {
           type="color"
           value={color}
           onChange={(e) => setColor(e.target.value)}
-          className="w-10 h-8 rounded cursor-pointer"
+          className="w-10 h-8 p-0 border-none rounded cursor-pointer bg-transparent"
         />
         <button
           onClick={handleClear}
@@ -133,7 +151,7 @@ const OptimizedCanvas = ({ coupleId, userId, darkMode }) => {
       {/* Canvas */}
       <Stage
         ref={stageRef}
-        width={window.innerWidth > 768 ? 600 : window.innerWidth - 40}
+        width={window.innerWidth > 768 ? 600 : window.innerWidth - 60}
         height={400}
         onMouseDown={handleMouseDown}
         onMousemove={handleMouseMove}
