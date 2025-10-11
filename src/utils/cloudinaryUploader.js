@@ -1,6 +1,6 @@
 import { getAuth } from 'firebase/auth';
 
-export const uploadToCloudinary = async (file) => {
+export const uploadToCloudinary = async (file, options = {}) => {
   try {
     console.log('🚀 Starting Cloudinary upload process...');
     console.log('📁 File details:', {
@@ -24,13 +24,15 @@ export const uploadToCloudinary = async (file) => {
     console.log('✅ Firebase token obtained');
 
     // 2. Request signature from our Vercel API
-    console.log('📡 Requesting upload signature from API...');
+    const folder = options.folder || 'default';
+    console.log(`📡 Requesting upload signature from API for folder: ${folder}`);
     const signatureResponse = await fetch('/api/generate-signature', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ folder: folder }),
     });
     
     console.log('📡 Signature response status:', signatureResponse.status);
@@ -41,21 +43,19 @@ export const uploadToCloudinary = async (file) => {
       throw new Error(`Could not get upload signature: ${signatureResponse.status}`);
     }
 
-    const { signature, timestamp, apiKey, cloudName, folder } = await signatureResponse.json();
+    const { signature, timestamp, apiKey, cloudName } = await signatureResponse.json();
     console.log('✅ Signature received successfully');
     console.log('☁️ Cloud Name:', cloudName);
     console.log('⏰ Timestamp:', timestamp);
-    console.log('📁 Folder:', folder);
 
     // 3. Prepare form data for Cloudinary
-    // IMPORTANT: Parameters must match those used to generate the signature
     console.log('📦 Preparing upload data...');
     const formData = new FormData();
     formData.append('file', file);
     formData.append('api_key', apiKey);
     formData.append('timestamp', timestamp);
     formData.append('signature', signature);
-    formData.append('folder', folder); // Use folder from API response
+    formData.append('folder', folder); // Use folder from options
 
     // 4. Upload to Cloudinary
     const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
@@ -68,14 +68,14 @@ export const uploadToCloudinary = async (file) => {
 
     console.log('☁️ Cloudinary response status:', uploadResponse.status);
 
+    const responseData = await uploadResponse.json();
+    console.log('📥 Cloudinary response data:', responseData);
+    
     if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text();
+      const errorText = JSON.stringify(responseData);
       console.error('❌ Cloudinary upload failed:', errorText);
       throw new Error(`Cloudinary upload failed: ${uploadResponse.status}`);
     }
-
-    const responseData = await uploadResponse.json();
-    console.log('📥 Cloudinary response data:', responseData);
     
     // 5. Check for Cloudinary-specific errors
     if (responseData.error) {
@@ -91,38 +91,32 @@ export const uploadToCloudinary = async (file) => {
     
     console.log('✅ Upload successful!');
     console.log('🔗 Image URL:', responseData.secure_url);
-    console.log('🆔 Public ID:', responseData.public_id);
     
     return responseData.secure_url;
 
   } catch (error) {
-    console.error('❌ Error uploading image:', error);
-    console.error('❌ Error details:', {
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('❌ Error in uploadToCloudinary function:', error);
     return null; // Return null on any failure
   }
 };
 
 /**
- * Upload to Cloudinary with progress tracking
+ * Upload to Cloudinary with progress tracking (optional advanced function)
  * @param {File} file - The file to upload
+ * @param {Object} options - { folder: 'some_folder' }
  * @param {Function} onProgress - Callback function that receives progress percentage (0-100)
  * @returns {Promise<string|null>} The secure URL or null on failure
  */
-export const uploadToCloudinaryWithProgress = async (file, onProgress) => {
+export const uploadToCloudinaryWithProgress = async (file, options = {}, onProgress) => {
   try {
     console.log('🚀 Starting upload with progress tracking...');
     
     const auth = getAuth();
     const user = auth.currentUser;
-    
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
+    if (!user) throw new Error('User not authenticated');
     
     const token = await user.getIdToken();
+    const folder = options.folder || 'default';
 
     // Get signature
     const signatureResponse = await fetch('/api/generate-signature', {
@@ -131,11 +125,10 @@ export const uploadToCloudinaryWithProgress = async (file, onProgress) => {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ folder: folder }),
     });
     
-    if (!signatureResponse.ok) {
-      throw new Error('Could not get upload signature');
-    }
+    if (!signatureResponse.ok) throw new Error('Could not get upload signature');
 
     const { signature, timestamp, apiKey, cloudName } = await signatureResponse.json();
 
@@ -145,50 +138,36 @@ export const uploadToCloudinaryWithProgress = async (file, onProgress) => {
     formData.append('api_key', apiKey);
     formData.append('timestamp', timestamp);
     formData.append('signature', signature);
-    formData.append('folder', 'profile_pictures');
+    formData.append('folder', folder);
     
     // Upload with XMLHttpRequest for progress tracking
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       
-      // Track upload progress
       xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable && onProgress) {
           const percentComplete = Math.round((e.loaded / e.total) * 100);
-          console.log(`📊 Upload progress: ${percentComplete}%`);
           onProgress(percentComplete);
         }
       });
 
       xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
+        if (xhr.status >= 200 && xhr.status < 300) {
           const response = JSON.parse(xhr.responseText);
-          
           if (response.error) {
-            console.error('❌ Cloudinary Error:', response.error.message);
             reject(new Error(response.error.message));
           } else if (response.secure_url) {
-            console.log('✅ Upload complete:', response.secure_url);
             resolve(response.secure_url);
           } else {
-            console.error('❌ No secure_url in response');
             reject(new Error('No URL returned'));
           }
         } else {
-          console.error('❌ Upload failed with status:', xhr.status);
-          reject(new Error(`Upload failed: ${xhr.status}`));
+          reject(new Error(`Upload failed: ${xhr.statusText}`));
         }
       });
 
-      xhr.addEventListener('error', () => {
-        console.error('❌ Network error during upload');
-        reject(new Error('Network error during upload'));
-      });
-
-      xhr.addEventListener('abort', () => {
-        console.error('❌ Upload aborted');
-        reject(new Error('Upload aborted'));
-      });
+      xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+      xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
 
       const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
       xhr.open('POST', cloudinaryUrl);

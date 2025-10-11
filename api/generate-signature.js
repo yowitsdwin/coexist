@@ -37,6 +37,11 @@ async function handler(req, res) {
     const idToken = authHeader.split('Bearer ')[1];
     await admin.auth().verifyIdToken(idToken);
 
+    const { folder } = req.body;
+    if (!folder || !['profile_pictures', 'daily_photos'].includes(folder)) {
+      return res.status(400).json({ error: 'Invalid or missing folder specified' });
+    }
+
     // Generate timestamp
     const timestamp = Math.round(new Date().getTime() / 1000);
 
@@ -44,7 +49,7 @@ async function handler(req, res) {
     // These MUST match exactly what you send to Cloudinary
     const uploadParams = {
       timestamp: timestamp,
-      folder: 'profile_pictures', // Include folder in signature
+      folder: folder // Use the dynamic folder name here
     };
 
     // Generate signature with the upload parameters
@@ -62,7 +67,7 @@ async function handler(req, res) {
       timestamp,
       apiKey: process.env.CLOUDINARY_API_KEY,
       cloudName: process.env.CLOUDINARY_CLOUD_NAME,
-      folder: 'profile_pictures', // Also send folder to client
+      folder: folder // Also send folder to client
     });
   } catch (error) {
     console.error('❌ API Route Error:', error);
