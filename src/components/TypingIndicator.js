@@ -1,6 +1,6 @@
 // File: components/TypingIndicator.js
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useTypingIndicator } from '../utils/useFirebase';
 
 export const TypingIndicator = ({ userId, channel, darkMode }) => {
@@ -65,4 +65,4 @@ export const useTypingHandler = (userId, channel) => {
   return { handleTyping, stopTyping };
 };
 
-export default TypingIndicator;
+export default TypingIndicator; 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Send, Image as ImageIcon, Smile } from 'lucide-react';
+import { Send, Image as ImageIcon, Smile, Loader2 } from 'lucide-react';
 import { ref, push, set } from 'firebase/database';
 import { database } from '../firebase';
 import { useRealtimeQuery } from '../utils/useFirebase';
@@ -15,41 +15,64 @@ import { MessageSkeleton } from './Loading';
 const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
   const [message, setMessage] = useState('');
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [messageLimit, setMessageLimit] = useState(20);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  
   const messagesEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
   const inputRef = useRef(null);
   const toast = useToast();
 
-  // 1. Stabilize the transform function with useCallback to prevent infinite loops
   const transformMessages = useCallback((val) => {
     if (!val) return [];
-    return Object.entries(val)
-      .map(([id, msg]) => ({ id, ...msg }))
-      .sort((a, b) => a.timestamp - b.timestamp);
-  }, []);
+    const messageArray = Object.entries(val).map(([id, msg]) => ({ id, ...msg }));
+    
+    if (messageArray.length < messageLimit) {
+      setHasMoreMessages(false);
+    } else {
+      setHasMoreMessages(true);
+    }
+    
+    return messageArray.sort((a, b) => a.timestamp - b.timestamp);
+  }, [messageLimit]);
 
-  // Fetch messages with the stable transform function
   const { data: messages, loading } = useRealtimeQuery(
     `messages/${coupleId}`,
     {
       orderBy: 'timestamp',
-      limit: 100,
-      transform: transformMessages
+      limit: messageLimit,
+      transform: transformMessages,
+      enabled: !!coupleId,
     }
   );
 
-  // Typing indicator hooks
   const { handleTyping, stopTyping } = useTypingHandler(userId, coupleId);
 
-  // Auto-scroll to bottom, memoized with useCallback
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  const handleScroll = useCallback(() => {
+    if (scrollContainerRef.current?.scrollTop === 0 && !loading && !isLoadingMore && hasMoreMessages) {
+      setIsLoadingMore(true);
+      setMessageLimit(prevLimit => prevLimit + 20);
+    }
+  }, [loading, isLoadingMore, hasMoreMessages]);
+  
+  const [prevScrollHeight, setPrevScrollHeight] = useState(null);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (isLoadingMore) {
+      setPrevScrollHeight(scrollContainerRef.current.scrollHeight);
+    }
+  }, [isLoadingMore]);
 
-  // Memoize the send message function
+  useEffect(() => {
+    if (isLoadingMore && prevScrollHeight && messages) {
+      scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight - prevScrollHeight;
+      setIsLoadingMore(false);
+    } else if (!isLoadingMore) {
+      messagesEndRef.current?.scrollIntoView();
+    }
+  }, [messages, isLoadingMore, prevScrollHeight]);
+
   const sendMessage = useCallback(async (imageData = null) => {
     const trimmedMessage = message.trim();
     if (!trimmedMessage && !imageData) return;
@@ -71,7 +94,6 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
       setShowImageUpload(false);
       stopTyping();
       inputRef.current?.focus();
-      
       toast.success('Message sent');
     } catch (error) {
       console.error('Send message error:', error);
@@ -79,7 +101,6 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
     }
   }, [message, userId, coupleId, stopTyping, toast]);
 
-  // Memoize input handlers
   const handleInputChange = useCallback((e) => {
     setMessage(e.target.value);
     handleTyping();
@@ -96,7 +117,6 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
     sendMessage(imageData);
   }, [sendMessage]);
 
-  // Memoize the rendered list of messages to prevent re-rendering every message on each change
   const messageList = useMemo(() => {
     return messages?.map((msg) => (
       <ChatMessage
@@ -114,50 +134,44 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
       {/* Header */}
       <div className={`p-4 border-b ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} shadow-sm`}>
         <div className="flex items-center justify-between">
-          <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-            Chat
-          </h2>
-          <PresenceIndicator partnerId={partnerId} darkMode={darkMode} />
+            <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Chat</h2>
+            <PresenceIndicator partnerId={partnerId} darkMode={darkMode} />
         </div>
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {loading ? (
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-2">
+        {isLoadingMore && (
+          <div className="flex justify-center items-center p-2">
+            <Loader2 className="w-6 h-6 animate-spin text-pink-500" />
+          </div>
+        )}
+        {loading && !messages ? (
           <>
             <MessageSkeleton darkMode={darkMode} isOwn={false} />
             <MessageSkeleton darkMode={darkMode} isOwn={true} />
-            <MessageSkeleton darkMode={darkMode} isOwn={false} />
           </>
         ) : messages?.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <Smile className={`w-16 h-16 mx-auto mb-4 ${darkMode ? 'text-gray-600' : 'text-gray-300'}`} />
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                No messages yet. Start the conversation!
-              </p>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>No messages yet. Start the conversation!</p>
             </div>
           </div>
         ) : (
           messageList
         )}
-        
         <TypingIndicator userId={userId} channel={coupleId} darkMode={darkMode} />
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Image upload modal */}
       {showImageUpload && (
         <div className="p-4 border-t border-gray-200">
-          <ImageUpload
-            onUpload={handleImageUpload}
-            onCancel={() => setShowImageUpload(false)}
-            darkMode={darkMode}
-          />
+          <ImageUpload onUpload={handleImageUpload} onCancel={() => setShowImageUpload(false)} darkMode={darkMode} />
         </div>
       )}
-
-      {/* Input area - Fixed at bottom */}
+      
+      {/* --- THIS SECTION WAS MISSING AND IS NOW RESTORED --- */}
       <div className={`p-4 border-t ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} shadow-lg`}>
         <div className="flex items-end gap-2">
           <button
@@ -193,7 +207,7 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
 
           <button
             onClick={() => sendMessage()}
-            disabled={!message.trim() && !showImageUpload}
+            disabled={!message.trim()}
             className={`p-3 rounded-full transition-all ${
               message.trim()
                 ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600 shadow-lg'
@@ -206,11 +220,11 @@ const ChatRoom = ({ userId, partnerId, coupleId, darkMode = false }) => {
             <Send className="w-5 h-5" />
           </button>
         </div>
-
-        <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+        <p className={`text-xs mt-2 text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
           Press Enter to send, Shift+Enter for new line
         </p>
       </div>
+      {/* --- END OF RESTORED SECTION --- */}
     </div>
   );
 };

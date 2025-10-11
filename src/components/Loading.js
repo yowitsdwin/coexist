@@ -85,10 +85,12 @@ export const CardSkeleton = ({ darkMode = false }) => {
   );
 };
 
-export default {
+const Loading = {
   LoadingSpinner,
   LoadingScreen,
   SkeletonLoader,
   MessageSkeleton,
   CardSkeleton
 };
+
+export default Loading;

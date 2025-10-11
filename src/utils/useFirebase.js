@@ -3,10 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   ref, 
-  onValue, 
-  push, 
+  onValue,
   set, 
-  update, 
   remove,
   onDisconnect,
   serverTimestamp,
@@ -269,7 +267,7 @@ export const useDebouncedWrite = (delay = 500) => {
   return debouncedWrite;
 };
 
-export default {
+const useFirebase = {
   useRealtimeData,
   useRealtimeQuery,
   usePresence,
@@ -277,3 +275,5 @@ export default {
   useTypingIndicator,
   useDebouncedWrite
 };
+
+export default useFirebase;

@@ -1,5 +1,4 @@
 import React from 'react';
-import { usePresence } from '../utils/useFirebase';
 import { useRealtimeQuery } from '../utils/useFirebase';
 import { formatRelativeTime } from '../utils/helpers';
 

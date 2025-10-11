@@ -6,7 +6,6 @@ import {
   Home, 
   MessageCircle, 
   Camera, 
-  Palette, 
   User, 
   LogOut,
   Menu,
@@ -21,7 +20,7 @@ const Navigation = ({ darkMode, onToggleDarkMode }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { logout } = useAuth();
   const toast = useToast();
 
   const handleLogout = async () => {
@@ -38,7 +37,6 @@ const Navigation = ({ darkMode, onToggleDarkMode }) => {
     { path: '/home', icon: Home, label: 'Home' },
     { path: '/chat', icon: MessageCircle, label: 'Chat' },
     { path: '/photos', icon: Camera, label: 'Photos' },
-    { path: '/canvas', icon: Palette, label: 'Canvas' },
     { path: '/profile', icon: User, label: 'Profile' },
   ];
 

@@ -50,6 +50,12 @@ const Toast = ({ id, type, message, onClose }) => {
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
+  // 1. Define `removeToast` FIRST.
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
+
+  // 2. Define `addToast` SECOND, so it can safely reference `removeToast`.
   const addToast = useCallback((message, type = 'info', duration = 3000) => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -61,11 +67,7 @@ export const ToastProvider = ({ children }) => {
     }
 
     return id;
-  }, []);
-
-  const removeToast = useCallback((id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
+  }, [removeToast]); // The dependency is now valid.
 
   const toast = {
     success: (message, duration) => addToast(message, 'success', duration),
@@ -83,12 +85,12 @@ export const ToastProvider = ({ children }) => {
         aria-atomic="true"
       >
         <div className="pointer-events-auto">
-          {toasts.map(toast => (
+          {toasts.map(t => (
             <Toast
-              key={toast.id}
-              id={toast.id}
-              type={toast.type}
-              message={toast.message}
+              key={t.id}
+              id={t.id}
+              type={t.type}
+              message={t.message}
               onClose={removeToast}
             />
           ))}
@@ -98,4 +100,5 @@ export const ToastProvider = ({ children }) => {
   );
 };
 
-export default { ToastProvider, useToast };
+const ToastExports = { ToastProvider, useToast };
+export default ToastExports;

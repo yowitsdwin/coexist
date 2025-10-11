@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Camera, Palette, Heart } from 'lucide-react';
+import { MessageCircle, Camera, Heart } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCouple } from '../contexts/CoupleContext'; // 1. Import the new hook
 import PresenceIndicator from '../components/PresenceIndicator';
@@ -32,13 +32,6 @@ const HomePage = ({ darkMode }) => {
       description: 'Capture and share daily photos',
       color: 'from-pink-400 to-pink-600',
       link: '/photos'
-    },
-    {
-      icon: Palette,
-      title: 'Draw Together',
-      description: 'Create art on a shared canvas',
-      color: 'from-purple-400 to-purple-600',
-      link: '/canvas'
     }
   ];
 
@@ -127,15 +120,6 @@ const HomePage = ({ darkMode }) => {
               </div>
               <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                 Photos
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">
-                {/* 3. Replace hardcoded "0" with real data */}
-                {loading ? '...' : stats.strokeCount}
-              </div>
-              <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Canvas Strokes
               </div>
             </div>
           </div>

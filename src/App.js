@@ -15,7 +15,6 @@ import MainLayout from './components/MainLayout';
 import HomePage from './pages/HomePage';
 import ChatPage from './pages/ChatPage';
 import PhotosPage from './pages/PhotosPage';
-import CanvasPage from './pages/CanvasPage';
 import ProfilePage from './pages/ProfilePage';
 import AuthPage from './pages/AuthPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -56,7 +55,6 @@ function App() {
           <Route path="home" element={<HomePage darkMode={darkMode} />} />
           <Route path="chat" element={<ChatPage darkMode={darkMode} />} />
           <Route path="photos" element={<PhotosPage darkMode={darkMode} />} />
-          <Route path="canvas" element={<CanvasPage darkMode={darkMode} />} />
           <Route path="profile" element={<ProfilePage darkMode={darkMode} />} />
           <Route index element={<HomePage darkMode={darkMode} />} />
         </Route>

@@ -271,7 +271,7 @@ export const handleFirebaseError = (error) => {
   return errorMessages[error.code] || error.message || 'An error occurred';
 };
 
-export default {
+const helpers = {
   sanitizeInput,
   sanitizeUrl,
   compressImageForDatabase,
@@ -289,3 +289,5 @@ export default {
   throttle,
   handleFirebaseError
 };
+
+export default helpers;

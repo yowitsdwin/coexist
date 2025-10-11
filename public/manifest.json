@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Coexist",
+  "name": "Coexist - For Couples",
+  "description": "A private space for you and your partner to stay connected.",
   "icons": [
     {
       "src": "favicon.ico",

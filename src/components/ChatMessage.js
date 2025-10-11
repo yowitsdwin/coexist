@@ -1,5 +1,5 @@
 import React, { memo, useState, useCallback } from 'react';
-import { Heart, Smile, ThumbsUp } from 'lucide-react';
+import { Smile } from 'lucide-react';
 import { formatTime } from '../utils/helpers';
 import { ref, set, remove } from 'firebase/database';
 import { database } from '../firebase';
