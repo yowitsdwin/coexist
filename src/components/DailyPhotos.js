@@ -7,7 +7,9 @@ import { formatRelativeTime } from '../utils/helpers';
 import { useToast } from '../utils/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useCouple } from '../contexts/CoupleContext';
+import { uploadToCloudinary } from '../utils/cloudinaryUploader'; // 1. Import the new helper
 import { CardSkeleton } from './Loading';
+import { LoadingSpinner } from '../components/Loading';
 
 const DailyPhotos = ({ darkMode = false }) => {
   const toast = useToast();
@@ -40,34 +42,39 @@ const DailyPhotos = ({ darkMode = false }) => {
   const handlePhotoCapture = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file || !coupleId || !currentUser) return;
-    
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File is too large. Please select an image under 2MB.");
+      return;
+    }
+
     setUploading(true);
-    // This part still uses Base64. A future optimization is to switch this to a storage service.
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const imageData = event.target.result; // This is the Base64 string
+    const publicUrl = await uploadToCloudinary(file);
+    
+    if (publicUrl) {
+      try {
         const photosRef = ref(database, `dailyPhotos/${coupleId}`);
         const newPhotoRef = push(photosRef);
         
+        // Save the Cloudinary URL to the Realtime Database
         await set(newPhotoRef, {
-          imageData,
+          imageUrl: publicUrl,
           userId: currentUser.uid,
           userName: currentUser.displayName,
           timestamp: Date.now(),
-          reactions: {}
+          reactions: {},
         });
+
         toast.success('Photo uploaded successfully!');
-        setUploading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-        console.error('Upload error:', error);
-        toast.error('Failed to upload photo');
-        setUploading(false);
+      } catch (error) {
+        toast.error('Failed to save photo metadata.');
+      }
+    } else {
+      toast.error('Failed to upload photo.');
     }
-    
-    e.target.value = '';
+
+    setUploading(false);
+    e.target.value = ''; // Reset file input
   }, [coupleId, currentUser, toast]);
   
   const handleReaction = useCallback(async (photoId, currentReactions) => {

@@ -45,14 +45,19 @@ export const AuthProvider = ({ children }) => {
             uid: user.uid,
             email: user.email,
             displayName: user.displayName,
-            ...userData
+            photoURL: user.photoURL, // IMPORTANT: Include photoURL from auth
+            ...userData,
+            // Add getIdToken method to currentUser object
+            getIdToken: () => user.getIdToken()
           });
         } catch (err) {
           console.error('Error fetching user data:', err);
           setCurrentUser({
             uid: user.uid,
             email: user.email,
-            displayName: user.displayName
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            getIdToken: () => user.getIdToken()
           });
         }
       } else {
@@ -128,33 +133,61 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Update user profile
+  // Update user profile - FIXED VERSION
   const updateUserProfile = async (updates) => {
     try {
       setError(null);
-      
-      if (!currentUser) throw new Error('No user logged in');
-
-      // Update in Firebase Auth if displayName is changing
-      if (updates.displayName && auth.currentUser) {
-        await updateProfile(auth.currentUser, {
-          displayName: updates.displayName
-        });
+      if (!currentUser || !auth.currentUser) {
+        throw new Error('No user is currently logged in.');
       }
 
-      // Update in Realtime Database
+      console.log('Updating profile with:', updates);
+
+      // 1. Prepare updates for Firebase Auth profile
+      const authProfileUpdates = {};
+      if (updates.displayName !== undefined) {
+        authProfileUpdates.displayName = updates.displayName;
+      }
+      if (updates.photoURL !== undefined) {
+        authProfileUpdates.photoURL = updates.photoURL;
+      }
+
+      // 2. Update Firebase Auth profile if there are changes
+      if (Object.keys(authProfileUpdates).length > 0) {
+        await updateProfile(auth.currentUser, authProfileUpdates);
+        console.log('Firebase Auth profile updated successfully');
+      }
+
+      // 3. Update Realtime Database
       const userRef = ref(database, `users/${currentUser.uid}`);
-      const existingData = (await get(userRef)).val() || {};
+      const snapshot = await get(userRef);
+      const existingData = snapshot.val() || {};
       
-      await set(userRef, {
+      const dbUpdates = {
         ...existingData,
         ...updates,
         updatedAt: serverTimestamp()
-      });
+      };
 
-      // Update local state
-      setCurrentUser(prev => ({ ...prev, ...updates }));
+      await set(userRef, dbUpdates);
+      console.log('Realtime Database updated successfully');
+
+      // 4. Force refresh the auth state to get updated photoURL
+      await auth.currentUser.reload();
+
+      // 5. Update local state with fresh data from auth
+      setCurrentUser(prev => ({
+        ...prev,
+        ...updates,
+        displayName: auth.currentUser.displayName || prev.displayName,
+        photoURL: auth.currentUser.photoURL || updates.photoURL,
+      }));
+
+      console.log('Profile update completed successfully');
+      return true;
+
     } catch (err) {
+      console.error("Failed to update user profile:", err);
       const errorMessage = handleFirebaseError(err);
       setError(errorMessage);
       throw new Error(errorMessage);
